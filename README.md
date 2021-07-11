@@ -10,8 +10,8 @@ The script `copper.m` located in the current folder attempts to reproduce Fig. 4
 
 ## Basis functions
 
-[Symmetric basis functions](figs/sym.png)
-[Antisymmetric basis functions](figs/asym.png)
+![Symmetric basis functions](figs/sym.png)
+![Antisymmetric basis functions](figs/asym.png)
 
 The plot of the basis functions was produced using
 
