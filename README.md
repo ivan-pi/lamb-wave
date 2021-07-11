@@ -8,3 +8,34 @@ A PDF of the article can be downloaded freely on [ResearchGate](https://www.rese
 
 The script `copper.m` located in the current folder attempts to reproduce Fig. 4a of the original article.
 
+## Basis functions
+
+[Symmetric basis functions](figs/sym.png)
+[Antisymmetric basis functions](figs/asym.png)
+
+The plot of the basis functions was produced using
+
+```gnuplot
+n = 5
+h = 0.01
+a(n) = (n-1)*pi/h
+b(n) = (n-0.5)*pi/h
+
+set terminal pngcairo enhanced
+
+set output "sym.png"
+plot [-h:h] for [i=1:n] cos(a(i)*x) lw 3 t sprintf('n = %d',i)
+
+set output "ssym.png"
+plot [-h:h] for [i=1:n] sin(b(i)*x) lw 3 t sprintf('n = %d',i)
+```
+
+## Fortran code
+
+A Fortran implementation of the wave mode calculator is in `lamb.f90`. To compile the code use:
+
+```
+gfortran -O3 lamb.f90 -o lamb -llapack -lblas
+```
+
+Running the code with the command `$ lamb` will produce a file `eigvals.txt` that can be plotted using gnuplot.
