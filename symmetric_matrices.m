@@ -20,6 +20,7 @@ A = A./(h*gamma);
 
 B = diag(alpha2/gamma - kl^2);
 
-C = -gamma .* A';
+% regular transpose 
+C = -gamma * transpose(A);
 
 D = diag(gamma*beta2 - kt^2);

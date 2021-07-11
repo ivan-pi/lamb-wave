@@ -26,7 +26,7 @@ set terminal pngcairo enhanced
 set output "sym.png"
 plot [-h:h] for [i=1:n] cos(a(i)*x) lw 3 t sprintf('n = %d',i)
 
-set output "ssym.png"
+set output "asym.png"
 plot [-h:h] for [i=1:n] sin(b(i)*x) lw 3 t sprintf('n = %d',i)
 ```
 

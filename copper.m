@@ -36,7 +36,7 @@ h = 0.02/2;
 omega = (1./h)/(sqrt(rho/mu));
 
 % Number of basis functions
-n = 10;
+n = 100;
 
 kt = omega/vs;
 kl = omega/vl;

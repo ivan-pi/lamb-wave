@@ -29,17 +29,17 @@ contains
     d = 0
 
     do i = 1, n
-      b(i,i) = beta(i)**2/gamma - kl**2
-      d(i,i) = gamma*alpha(i)**2 - kt**2
+      b(i,i) = alpha(i)**2/gamma - kl**2
+      d(i,i) = gamma*beta(i)**2 - kt**2
     end do
 
     do i = 1, n
-      a(1,i) = sqrt(2.0_wp)*j_*(-1)**i
+      a(i,1) = sqrt(2.0_wp)*j_*(2.0_wp - gamma)*(-1)**i
     end do
-    do i = 2, n
-      do j = 1, n
-        a(i,j) = 2*j_*(-1)**(i+j)*((gamma - 2)*alpha(j)**2 + beta(i)**2) / &
-                                  (alpha(i)**2 - beta(j)**2)
+    do j = 2, n
+      do i = 1, n
+        a(i,j) = 2*j_*(-1)**(i+j)*(alpha(j)**2 + (gamma - 2)*beta(i)**2) / &
+                                  (beta(i)**2 - alpha(j)**2)
       end do
     end do
 
@@ -49,6 +49,20 @@ contains
 
   end subroutine
 
+  subroutine disp(a,text)
+    complex(wp), intent(in) :: a(:,:)
+    character(len=*), intent(in), optional :: text
+
+    integer :: i
+
+    if (present(text)) then
+      write(*,'(A)') text
+    end if
+    do i = 1, size(a,1)
+      print *, a(i,:)
+    end do
+  end subroutine
+
 end module
 
 program main
@@ -56,7 +70,7 @@ program main
   use lamb
   implicit none
 
-  integer, parameter :: n = 8
+  integer, parameter :: n = 100
   real(wp) :: omega, vl, vs, kt, kl, gamma, h
 
   complex(wp), allocatable, dimension(:,:) :: a, b, c, d
@@ -91,13 +105,10 @@ program main
 
   call sym(n,h,kt,kl,gamma,a,b,c,d)
 
-  print *, a
-
-  print *, "b = "
-  print *, b
-
-  print *, "d = "
-  print *, d
+  call disp(a,"a = ")
+  call disp(b,"b = ")
+  call disp(c,"c = ")
+  call disp(d,"d = ")
 
   M = 0
   do i = 1, 2*n
