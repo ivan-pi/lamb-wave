@@ -29,8 +29,8 @@ contains
     d = 0
 
     do i = 1, n
-      b(i,i) = alpha(i)**2/gamma - kl**2
-      d(i,i) = gamma*beta(i)**2 - kt**2
+      d(i,i) = alpha(i)**2/gamma - kl**2
+      b(i,i) = gamma*beta(i)**2 - kt**2
     end do
 
     do i = 1, n
@@ -49,6 +49,121 @@ contains
 
   end subroutine
 
+  subroutine full_eig(n,h,kt,kl,gamma,k)
+    integer, intent(in) :: n
+    real(wp), intent(in) :: h, kt, kl, gamma
+    complex(wp), intent(out) :: k(4*n)
+
+    ! Local computations
+    complex(wp), dimension(n,n) :: a, b, c, d
+    integer :: i
+
+    ! Eigenvalue computation
+    complex(wp), allocatable :: M(:,:)
+    complex(wp), allocatable :: zvl(:,:), zvr(:,:)
+    complex(wp), allocatable :: work(:), rwork(:)
+    integer :: s, lwork, info
+
+    s = 4*n
+    allocate(m(s,s))
+
+    lwork = 2*s
+    allocate(work(lwork),rwork(lwork))
+
+    call sym(n,h,kt,kl,gamma,a,b,c,d)
+
+    M = 0
+    do i = 1, 2*n
+      M(i,2*n+i) = 1.0_wp
+    end do
+
+    M(2*n+1:3*n,1:n) = -b
+    M(3*n+1:4*n,n+1:2*n) = -d
+
+    M(2*n+1:3*n,3*n+1:4*n) = -a
+    M(3*n+1:4*n,2*n+1:3*n) = -c
+
+    call zgeev('N','N',4*n,M,4*n,k,zvl,1,zvr,1,work,lwork,rwork,info)
+
+    if (info /= 0) then
+      print *, "{full_eig} failed with info = ", info
+      stop
+    end if
+
+  end subroutine
+
+  subroutine reduced_eig(n,h,kt,kl,gamma,k)
+    integer, intent(in) :: n
+    real(wp), intent(in) :: h, kt, kl, gamma
+    complex(wp), intent(out) :: k(2*n)
+
+    ! Local computations
+    complex(wp), dimension(n,n) :: a, b, c, d, f2, g2
+    integer :: i
+
+    ! Eigenvalue computation
+    complex(wp), allocatable, target :: M(:,:)
+    complex(wp), allocatable :: zldum(:,:), zrdum(:,:)
+    complex(wp), allocatable :: work(:), rwork(:)
+    integer :: s, lwork
+
+    ! Linear system solve
+    complex(wp), allocatable :: aba(:,:)
+    integer, allocatable :: ipiv(:)
+    integer :: info
+
+    s = 2*n
+    allocate(m(s,s),aba(n,n),ipiv(n))
+
+    lwork = 2*s
+    allocate(work(lwork),rwork(lwork))
+
+    call sym(n,h,kt,kl,gamma,a,b,c,d)
+
+    ! Pre-compute any expressions using matrix A, before it is factorized
+    aba = matmul(b,a)
+    f2 = d - matmul(c,a)
+
+    ! Solve Ax = BA, solution is A^{-1}BA
+    call zgesv(n,n,a,n,ipiv,aba,n,info)
+
+    if (info /= 0) then
+      print *, "{full_eig} zgesv failed with info = ", info
+      stop
+    end if
+
+    ! Remaining operations
+    f2 = f2 + aba
+    g2 = matmul(d,aba)
+
+    ! Zero upper half
+    M(1:n,:) = 0.0_wp
+
+    ! Bottom left block
+    M(n+1:2*n,1:n) = -g2
+
+    ! Upper right block
+    do i = 1, n
+      M(i,n+i) = 1.0_wp
+    end do 
+
+    ! Bottom right block
+    M(n+1:2*n,n+1:2*n) = -f2
+
+    !
+    ! Eigenvalue computation
+    !
+    call zgeev('N','N',s,M,s,k,zldum,1,zrdum,1,work,lwork,rwork,info)
+
+    if (info /= 0) then
+      print *, "{full_eig} zgeev failed with info = ", info
+      stop
+    end if
+
+    k = sqrt(k)
+
+  end subroutine
+
   subroutine disp(a,text)
     complex(wp), intent(in) :: a(:,:)
     character(len=*), intent(in), optional :: text
@@ -63,6 +178,14 @@ contains
     end do
   end subroutine
 
+
+  function positive_eigvals(k) result(kpos)
+    complex(wp), intent(in) :: k(:)
+    complex(wp), allocatable :: kpos(:)
+
+    kpos = pack(k, aimag(k) >= 0.0_wp)
+  end function
+
 end module
 
 program main
@@ -70,26 +193,14 @@ program main
   use lamb
   implicit none
 
-  integer, parameter :: n = 100
+  integer, parameter :: n = 32
   real(wp) :: omega, vl, vs, kt, kl, gamma, h
 
-  complex(wp), allocatable, dimension(:,:) :: a, b, c, d
+  integer, parameter :: s = 2*n
+  complex(wp), allocatable :: w(:), ym(:)
+  integer :: i
 
-  integer, parameter :: s = 4*n
-  complex(wp), allocatable :: m(:,:), w(:), ym(:)
-  complex(wp), allocatable :: zvl(:,:), zvr(:,:)
-  integer, parameter :: lwork = 2*s
-  complex(wp), allocatable :: work(:), rwork(:)
-  integer :: info, i
-
-  external :: zgeev
-
-  allocate(a(n,n),b(n,n),c(n,n),d(n,n))
-
-  allocate(m(s,s),w(s))
-
-  allocate(work(lwork),rwork(lwork))
-
+  allocate(w(s))
 
   h = 0.01_wp
 
@@ -102,37 +213,16 @@ program main
   kl = omega/vl
   gamma = (vl/vs)**2
 
+  !call full_eig(n,h,kt,kl,gamma,w)
+  call reduced_eig(n,h,kt,kl,gamma,w)
 
-  call sym(n,h,kt,kl,gamma,a,b,c,d)
-
-  call disp(a,"a = ")
-  call disp(b,"b = ")
-  call disp(c,"c = ")
-  call disp(d,"d = ")
-
-  M = 0
-  do i = 1, 2*n
-    M(i,2*n+i) = 1.0_wp
-  end do
-
-  M(2*n+1:3*n,1:n) = -b
-  M(3*n+1:4*n,n+1:2*n) = -d
-
-  M(2*n+1:3*n,3*n+1:4*n) = -a
-  M(3*n+1:4*n,2*n+1:3*n) = -c
-
-  call zgeev('N','N',4*n,M,4*n,w,zvl,1,zvr,1,work,lwork,rwork,info)
-  print *, "info = ", info
-
-  print *, "Eigenvalues: "
-  do i = 1, s
-    print *, w(i)
-  end do
+  w = positive_eigvals(w)
 
   block
     integer :: unit
     open(newunit=unit,file='eigvals.txt')
-    do i = 1, s
+    
+    do i = 1, size(w)
       write(unit,*) real(w(i))*h, aimag(w(i))*h
     end do
 
